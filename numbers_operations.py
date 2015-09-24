@@ -94,7 +94,7 @@ class Chromosome:
 
 	def fitness(self, target_number):
 		if isinstance(self.result(), int):
-			return exp(-0.1*sqrt(abs(target_number-self.result())))
+			return exp(-sqrt(abs(target_number-self.result())/float(abs(target_number))))
 		else:
 			return 0
 
@@ -124,11 +124,15 @@ def populate_zoo(target_number, init_pupulation_size):
 		init_chromosome_length -= 4
 	for n in xrange(init_pupulation_size):
 		done = False
-		while not done:
+		while not done:                                               #Generate valid (live) chromosomes only
 			animal = Chromosome(rand_seq(init_chromosome_length))
 			if animal.fitness(target_number) != 0:
 				done = True
-		zoo[repr(n)] = animal
+		try:
+			animal.old_age = 5/(1-animal.fitness(target_number))      #Let the strong ones live longer
+		except:
+			pass
+		zoo[repr(n)] = animal                                         #Put the animal in the zoo
 		if zoo[repr(n)].fitness(target_number) == 1:
 			print zoo[repr(n)].result(), zoo[repr(n)].result_formula()
 	return zoo
@@ -136,11 +140,9 @@ def populate_zoo(target_number, init_pupulation_size):
 #Advance the population in time (+ 1 generation)
 #Darwinian selection takes place in this function (during reproduction)
 def next_generation(zoo, target_number, pupulation_size, minimum_fitness, mutation_rate, offspring_count):
-	total_growth = 0
-	count = 0
 	for m in xrange(pupulation_size):
 
-		try:
+		try:                                                                                   #Grab a potential parent from the zoo
 			animal = zoo[repr(m)]
 			if animal.fitness(target_number) != 1:
 				zoo[repr(m)].aging()
@@ -150,15 +152,15 @@ def next_generation(zoo, target_number, pupulation_size, minimum_fitness, mutati
 			continue
 
 		if animal.alive:
-			for n in xrange(int(animal.fitness(target_number)**2 * offspring_count)):
+			for n in xrange(int(animal.fitness(target_number)**2 * offspring_count)):          #Let the strong ones reproduce more
 				offspring = animal.reproduce(mutation_rate)
 				try:
 					offspring.old_age = 5/(1-offspring.fitness(target_number))
 				except:
 					pass
-				if offspring.fitness(target_number) != 0:
+				if offspring.fitness(target_number) != 0:                                      #Put live offspring in the zoo
 					zoo[repr(pupulation_size+m)] = offspring
-		if animal.fitness(target_number) == 1:
+		if animal.fitness(target_number) >= 1:
 			print animal.result(), animal.result_formula()
 	if pupulation_size == len(zoo):
 		print "Population terminated"
@@ -176,12 +178,12 @@ def next_generation(zoo, target_number, pupulation_size, minimum_fitness, mutati
 """Run the GA"""
 #SETTINGS:
 target_number = 42 if len(sys.argv) == 1 else int(sys.argv[1])
-init_pupulation_size = 100
-maximum_population = 100
+init_pupulation_size = 5000
+maximum_population = 50000
 mutation_rate = 0.05
 minimum_fitness = 0.6
 offspring_count = 300
-number_of_generations = 100
+number_of_generations = 5
 
 #Populate 
 zoo = populate_zoo(target_number, init_pupulation_size)
@@ -213,11 +215,19 @@ darwinned_animals = OrderedDict(sorted(list({cage[0] : cage[1].fitness(target_nu
 final_solutions = []
 print "SOLUTIONS FOUND:"
 done = False
+threshold = 1
 while not done:
 	cage, fitness = darwinned_animals.popitem(last = True)
-	if fitness == 1:
+	if fitness >= threshold:
 		final_solutions.append(zoo[cage].result_formula())
+	elif len(final_solutions) == 0:
+		print "NONE. BEST PERFORMERS FOUND:"
+		threshold = 0.8
+		if fitness >= threshold:
+			final_solutions.append(zoo[cage].result_formula())
 	else:
-		done = True 
-for element in Counter(final_solutions):
-	print element, "    ", Counter(final_solutions)[element]
+		done = True
+
+counts = Counter(final_solutions)
+for element in list(OrderedDict.fromkeys(final_solutions)):
+	print eval(element), element, "    ", counts[element]
